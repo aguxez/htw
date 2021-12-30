@@ -3,14 +3,14 @@
 
 module Main where
 
+import Configuration.Dotenv (defaultConfig, loadFile)
+import Control.Monad (void)
 import Data.Aeson (FromJSON (..), Object, ToJSON (..), Value, decode, withObject, (.:), (.:?))
 import Data.Aeson.Types (Parser (..), parseMaybe)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as BS8
-import qualified Data.ByteString.Lazy as BSL
 import qualified Data.Map.Strict as Map
 import Data.Maybe (fromJust)
-import qualified Data.Text as T
 import GHC.Generics
 import Network.HTTP.Client
   ( Request (method, requestBody, requestHeaders),
@@ -23,7 +23,7 @@ import Network.HTTP.Client
 import Network.HTTP.Client.Conduit (applyBearerAuth)
 import Network.HTTP.Client.TLS (tlsManagerSettings)
 import Network.HTTP.Simple (getResponseBody, parseRequest)
-import System.Environment (getArgs)
+import System.Environment (getArgs, getEnv)
 
 data TweetUser = TweetUser
   { name :: String,
@@ -59,8 +59,10 @@ tweetUserParser = withObject "TweetUser" $ \obj -> do
   username <- obj .: "screen_name"
   pure (TweetUser {name = name, username = username})
 
-token :: BS.ByteString
-token = BS8.pack "AAAAAAAAAAAAAAAAAAAAAG0SxwAAAAAA%2BOESQxdedDvp5H7lBcHVhVB%2FCQ4%3DStbg0nITyPlTIx6btJEZ5wRpQifzIKLcN366Ui9cpzNCYy7zGP"
+bearerToken :: IO (BS.ByteString)
+bearerToken = do
+  tokenEnv <- getEnv "BEARER_TOKEN"
+  return $ BS8.pack tokenEnv
 
 baseUrl :: String
 baseUrl = "https://api.twitter.com/1.1/statuses/show.json"
@@ -73,6 +75,7 @@ tweetResponse :: String -> IO (Tweet)
 tweetResponse tweetId = do
   manager <- newManager tlsManagerSettings
   nakedRequest <- parseRequest baseUrl
+  token <- bearerToken
   let request = applyQueryStringAndAuth tweetId token nakedRequest
   response <- httpLbs request manager
   return $ fromJust $ decode $ getResponseBody response
@@ -97,5 +100,6 @@ getThread tweetId = do
 
 main :: IO ()
 main = do
+  void $ loadFile defaultConfig
   [tweetId] <- getArgs
   getThread tweetId
