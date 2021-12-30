@@ -68,8 +68,12 @@ baseUrl :: String
 baseUrl = "https://api.twitter.com/1.1/statuses/show.json"
 
 applyQueryStringAndAuth :: String -> BS.ByteString -> Request -> Request
-applyQueryStringAndAuth tweetId token request =
-  setQueryString [("id", Just (BS8.pack tweetId)), ("tweet_mode", Just "extended")] $ applyBearerAuth token request
+applyQueryStringAndAuth tweetId token request = queryStr $ authReq
+  where
+    idParam = ("id", Just (BS8.pack tweetId))
+    tweetMode = ("tweet_mode", Just "extended")
+    queryStr = setQueryString [idParam, tweetMode]
+    authReq = applyBearerAuth token request
 
 tweetResponse :: String -> IO (Tweet)
 tweetResponse tweetId = do
