@@ -1,4 +1,4 @@
-{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveGeneric     #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Main where
@@ -10,31 +10,28 @@ import Data.Aeson.Types (Parser (..))
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as BS8
 import Data.Maybe (fromJust)
-import GHC.Generics
-import Network.HTTP.Client
-  ( Request (method, requestBody, requestHeaders),
-    RequestBody (RequestBodyLBS),
-    Response (..),
-    httpLbs,
-    newManager,
-    setQueryString,
-  )
+import GHC.Generics (Generic)
+import Network.HTTP.Client (Request (method, requestBody, requestHeaders),
+                            RequestBody (RequestBodyLBS), Response (..), httpLbs, newManager,
+                            setQueryString)
+
+
 import Network.HTTP.Client.Conduit (applyBearerAuth)
 import Network.HTTP.Client.TLS (tlsManagerSettings)
 import Network.HTTP.Simple (getResponseBody, parseRequest)
 import System.Environment (getArgs, getEnv)
 
 data TweetUser = TweetUser
-  { name :: String,
+  { name     :: String,
     username :: String
   }
   deriving (Generic, Show)
 
 data Tweet = Tweet
-  { tweetId :: String,
+  { tweetId       :: String,
     statusIdReply :: Maybe String,
-    text :: String,
-    user :: TweetUser
+    text          :: String,
+    user          :: TweetUser
   }
   deriving (Generic, Show)
 
@@ -58,7 +55,7 @@ tweetUserParser = withObject "TweetUser" $ \obj -> do
   username <- obj .: "screen_name"
   pure (TweetUser {name = name, username = username})
 
-bearerToken :: IO (BS.ByteString)
+bearerToken :: IO BS.ByteString
 bearerToken = do
   tokenEnv <- getEnv "BEARER_TOKEN"
   return $ BS8.pack tokenEnv
@@ -67,14 +64,14 @@ baseUrl :: String
 baseUrl = "https://api.twitter.com/1.1/statuses/show.json"
 
 applyQueryStringAndAuth :: String -> BS.ByteString -> Request -> Request
-applyQueryStringAndAuth tweetId token request = queryStr $ authReq
+applyQueryStringAndAuth tweetId token request = queryStr authReq
   where
     idParam = ("id", Just (BS8.pack tweetId))
     tweetMode = ("tweet_mode", Just "extended")
     queryStr = setQueryString [idParam, tweetMode]
     authReq = applyBearerAuth token request
 
-tweetResponse :: String -> IO (Tweet)
+tweetResponse :: String -> IO Tweet
 tweetResponse tweetId = do
   manager <- newManager tlsManagerSettings
   nakedRequest <- parseRequest baseUrl
@@ -85,7 +82,7 @@ tweetResponse tweetId = do
 
 -- Based on the reply id (Whether a tweet is replying to another one)
 -- we're asking for more tweets and putting them in an accumulator
-moreTweets :: Maybe String -> [Tweet] -> IO ([Tweet])
+moreTweets :: Maybe String -> [Tweet] -> IO [Tweet]
 moreTweets Nothing accTweets = return accTweets
 moreTweets (Just replyId) accTweets = do
   newTweet <- tweetResponse replyId
@@ -94,7 +91,7 @@ moreTweets (Just replyId) accTweets = do
 parseTweets :: [Tweet] -> [String]
 parseTweets = map convertToStr
   where
-    convertToStr x = "\nusername: @" ++ (username $ user x) ++ "\nname: " ++ (name $ user x) ++ "\ntext: " ++ text x ++ "\n---"
+    convertToStr x = "\nusername: @" ++ username (user x) ++ "\nname: " ++ name (user x) ++ "\ntext: " ++ text x ++ "\n---"
 
 -- Just follows a thread by Tweet ID
 getThread :: String -> IO ()
