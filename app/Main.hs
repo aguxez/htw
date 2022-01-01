@@ -22,16 +22,16 @@ import Network.HTTP.Simple (getResponseBody, parseRequest)
 import System.Environment (getArgs, getEnv)
 
 data TweetUser = TweetUser
-  { name     :: String,
-    username :: String
+  { name     :: !String,
+    username :: !String
   }
   deriving (Generic, Show)
 
 data Tweet = Tweet
-  { tweetId       :: String,
-    statusIdReply :: Maybe String,
-    text          :: String,
-    user          :: TweetUser
+  { tweetId       :: !String,
+    statusIdReply :: !(Maybe String),
+    text          :: !String,
+    user          :: !TweetUser
   }
   deriving (Generic, Show)
 
