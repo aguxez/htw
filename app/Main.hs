@@ -1,108 +1,111 @@
-{-# LANGUAGE DeriveGeneric     #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Main where
 
 import Configuration.Dotenv (defaultConfig, loadFile)
-import Control.Monad (void)
-import Data.Aeson (FromJSON (..), ToJSON (..), Value, decode, withObject, (.:), (.:?))
-import Data.Aeson.Types (Parser (..))
+import Data.Aeson (FromJSON (..), eitherDecode, withObject, (.:), (.:?))
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as BS8
-import Data.Maybe (fromJust)
-import GHC.Generics (Generic)
-import Network.HTTP.Client (Request (method, requestBody, requestHeaders),
-                            RequestBody (RequestBodyLBS), Response (..), httpLbs, newManager,
+import Data.List (intercalate)
+import Network.HTTP.Client (Request, applyBearerAuth, httpLbs, newManager, parseRequest,
                             setQueryString)
-
-
-import Network.HTTP.Client.Conduit (applyBearerAuth)
 import Network.HTTP.Client.TLS (tlsManagerSettings)
-import Network.HTTP.Simple (getResponseBody, parseRequest)
+import Network.HTTP.Simple (getResponseBody, getResponseStatusCode)
 import System.Environment (getArgs, getEnv)
 
-data TweetUser = TweetUser
-  { name     :: !String,
-    username :: !String
+newtype TweetID = TweetID String
+  deriving (Show, Eq)
+
+newtype Token = Token BS.ByteString
+  deriving (Show, Eq)
+
+data User = User
+  { userFullName :: !String,
+    userUsername :: !String
   }
-  deriving (Generic, Show)
+  deriving (Show, Eq)
 
 data Tweet = Tweet
-  { tweetId       :: !String,
-    statusIdReply :: !(Maybe String),
-    text          :: !String,
-    user          :: !TweetUser
+  { tweetId          :: !TweetID,
+    tweetInReplyToId :: !(Maybe TweetID),
+    tweetText        :: !String,
+    tweetUser        :: !User
   }
-  deriving (Generic, Show)
+  deriving (Show, Eq)
 
 instance FromJSON Tweet where
-  parseJSON = tweetParser
+  parseJSON =  withObject "Tweet" $ \obj -> do
+    tid <- obj .: "id_str"
+    statusIdReply <- obj .:? "in_reply_to_status_id_str"
+    text <- obj .: "full_text"
+    user <- obj .: "user"
+    pure (Tweet {tweetId = TweetID tid, tweetInReplyToId = TweetID <$> statusIdReply, tweetText = text, tweetUser = user})
 
-instance FromJSON TweetUser where
-  parseJSON = tweetUserParser
+instance FromJSON User where
+  parseJSON = withObject "TweetUser" $ \obj -> do
+    name <- obj .: "name"
+    username <- obj .: "screen_name"
+    pure $ User name username
 
-tweetParser :: Value -> Parser Tweet
-tweetParser = withObject "Tweet" $ \obj -> do
-  tweetId <- obj .: "id_str"
-  statusIdReply <- obj .:? "in_reply_to_status_id_str"
-  text <- obj .: "full_text"
-  user <- obj .: "user"
-  pure (Tweet {tweetId = tweetId, statusIdReply = statusIdReply, text = text, user = user})
-
-tweetUserParser :: Value -> Parser TweetUser
-tweetUserParser = withObject "TweetUser" $ \obj -> do
-  name <- obj .: "name"
-  username <- obj .: "screen_name"
-  pure (TweetUser {name = name, username = username})
-
-bearerToken :: IO BS.ByteString
-bearerToken = do
+getBearerToken :: IO Token
+getBearerToken = do
   tokenEnv <- getEnv "BEARER_TOKEN"
-  return $ BS8.pack tokenEnv
+  (return . Token . BS8.pack) tokenEnv
 
 baseUrl :: String
 baseUrl = "https://api.twitter.com/1.1/statuses/show.json"
 
-applyQueryStringAndAuth :: String -> BS.ByteString -> Request -> Request
-applyQueryStringAndAuth tweetId token request = queryStr authReq
+applyQueryStringAndAuth :: Token -> TweetID -> Request -> Request
+applyQueryStringAndAuth (Token rawToken) (TweetID tid) request = queryStr authReq
   where
-    idParam = ("id", Just (BS8.pack tweetId))
+    idParam = ("id", Just (BS8.pack tid))
     tweetMode = ("tweet_mode", Just "extended")
     queryStr = setQueryString [idParam, tweetMode]
-    authReq = applyBearerAuth token request
+    authReq = applyBearerAuth rawToken request
 
-tweetResponse :: String -> IO Tweet
-tweetResponse tweetId = do
+-- | Gets a Tweet by ID from the API
+getTweetResponse :: Token -> TweetID -> IO (Either String Tweet)
+getTweetResponse token tid = do
   manager <- newManager tlsManagerSettings
   nakedRequest <- parseRequest baseUrl
-  token <- bearerToken
-  let request = applyQueryStringAndAuth tweetId token nakedRequest
+  let request = applyQueryStringAndAuth token tid nakedRequest
   response <- httpLbs request manager
-  return $ fromJust $ decode $ getResponseBody response
+  let body = getResponseBody response
+  return $
+    case getResponseStatusCode response of
+      200     -> eitherDecode body
+      badCode -> Left ("Got Bad status code: HTTP " <> show badCode <> ": " <> show body)
 
--- Based on the reply id (Whether a tweet is replying to another one)
--- we're asking for more tweets and putting them in an accumulator
-moreTweets :: Maybe String -> [Tweet] -> IO [Tweet]
-moreTweets Nothing accTweets = return accTweets
-moreTweets (Just replyId) accTweets = do
-  newTweet <- tweetResponse replyId
-  moreTweets (statusIdReply newTweet) (newTweet : accTweets)
-
-parseTweets :: [Tweet] -> [String]
-parseTweets = map convertToStr
+-- | Get all tweets in a thread, accumulating to the given list
+getTweetThread :: Token -> TweetID -> IO [Tweet]
+getTweetThread token = recurse []
   where
-    convertToStr x = "\nusername: @" ++ username (user x) ++ "\nname: " ++ name (user x) ++ "\ntext: " ++ text x ++ "\n---"
+    recurse tweets tid = do
+      response <- getTweetResponse token tid
+      case response of
+        Right replyTweet ->
+          let allTweets = replyTweet : tweets
+              maybeReplyId = tweetInReplyToId replyTweet
+          in maybe (return allTweets) (recurse allTweets) maybeReplyId
+        Left message -> error message
 
--- Just follows a thread by Tweet ID
-getThread :: String -> IO ()
-getThread tweetId = do
-  tweet <- tweetResponse tweetId
-  tweets <- moreTweets (statusIdReply tweet) [tweet]
-  let parsedTweets = parseTweets tweets
-  mapM_ putStrLn parsedTweets
+renderTweet :: Tweet -> String
+renderTweet tweet = intercalate "\n" fields
+  where
+    fields =
+      [ "username: @" <> userUsername user,
+        "name: " <> userFullName user,
+        "text: " <> tweetText tweet
+      ]
+    user = tweetUser tweet
 
 main :: IO ()
 main = do
-  void $ loadFile defaultConfig
-  [tweetId] <- getArgs
-  getThread tweetId
+  _ <- loadFile defaultConfig
+  token <- getBearerToken
+  args <- getArgs
+  case args of
+    [tid] -> do
+      tweets <- getTweetThread token (TweetID tid)
+      putStrLn $ intercalate "\n---\n" (renderTweet <$> tweets)
+    _ -> error "Usage: shrink <TWEET ID>"

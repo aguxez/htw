@@ -21,7 +21,7 @@ description: Please see the README on GitHub at <https://github.com/aguxez/htw#r
 
 dependencies:
   - base >= 4.7 && < 5
-  - bytestring ==0.10.12.0
+  - bytestring ==0.10.12.1
   - http-conduit ==2.3.8
   - http-client ==0.7.9
   - aeson ==1.5.6.0

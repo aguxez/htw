@@ -5,12 +5,47 @@
 
 packages:
 - completed:
+    hackage: binary-0.8.9.0@sha256:9cac9a1d86bfa3e7f75cc8bffaa256f3967ebb6d76f67a42f9679384c5c5e18a,6523
+    pantry-tree:
+      size: 1976
+      sha256: 61308af6be2cdb6ba09390d35f3fa1ebb45e3af688bf04922658532398eaa276
+  original:
+    hackage: binary-0.8.9.0@sha256:9cac9a1d86bfa3e7f75cc8bffaa256f3967ebb6d76f67a42f9679384c5c5e18a,6523
+- completed:
+    hackage: parsec-3.1.15.0@sha256:a162d4cc8884014ba35192545cad293af0529fe11497aad8834bbaaa3dfffc26,4429
+    pantry-tree:
+      size: 2630
+      sha256: cbddc1e3c5ada6925354850cc0a8fadcd8643689098a504a0ed25ef9e0b932b8
+  original:
+    hackage: parsec-3.1.15.0@sha256:a162d4cc8884014ba35192545cad293af0529fe11497aad8834bbaaa3dfffc26,4429
+- completed:
+    hackage: text-1.2.5.0@sha256:791f0f6c97ed96113f17ab520cf0efe1a3a4f883a8c85910a5660567c8241c40,7895
+    pantry-tree:
+      size: 7395
+      sha256: f41504ec5c04a3f3358ef104362f02fdef29cbce4e5e4e6dbd6b6db70c40d4bf
+  original:
+    hackage: text-1.2.5.0@sha256:791f0f6c97ed96113f17ab520cf0efe1a3a4f883a8c85910a5660567c8241c40,7895
+- completed:
+    hackage: containers-0.6.5.1@sha256:a029734132bb3471f8a91e3deaa095581a97410c405a1c665643053db87d87c1,2596
+    pantry-tree:
+      size: 2823
+      sha256: 86234e3221f6fa50e82d860a8428005ac3ff19fea92103ff79a3047cd5cd1625
+  original:
+    hackage: containers-0.6.5.1@sha256:a029734132bb3471f8a91e3deaa095581a97410c405a1c665643053db87d87c1,2596
+- completed:
     hackage: http-client-0.7.9@sha256:4fe29d5ed114a61de32be77858af386dbb30cda8852aff4a9e30ccc351ae3b86,5400
     pantry-tree:
       size: 2459
       sha256: b27ca0bb7e408e02e98591bc7c44efb6e1da7f936ff58c1ae67d59475a2cbc1a
   original:
-    hackage: http-client-0.7.9@sha256:4fe29d5ed114a61de32be77858af386dbb30cda8852aff4a9e30ccc351ae3b86
+    hackage: http-client-0.7.9@sha256:4fe29d5ed114a61de32be77858af386dbb30cda8852aff4a9e30ccc351ae3b86,5400
+- completed:
+    hackage: memory-0.16.0@sha256:fea26d1d3cd954d66c9103de6c5fbf80454560889ee8de54d368fa9d1b01140b,5064
+    pantry-tree:
+      size: 2436
+      sha256: 4700f39c881547155baabe8833214474315369b391ad7820c6c3f4c09b82bf0a
+  original:
+    hackage: memory-0.16.0
 snapshots:
 - completed:
     size: 586106
