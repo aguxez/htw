@@ -106,6 +106,7 @@ main = do
   args <- getArgs
   case args of
     [tid] -> do
+      putStrLn $ "Getting thread for " <> tid <> "\n---"
       tweets <- getTweetThread token (TweetID tid)
       putStrLn $ intercalate "\n---\n" (renderTweet <$> tweets)
     _ -> error "Usage: shrink <TWEET ID>"
